@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stride — search past exam questions</title>
+<meta name="description" content="Search past exam questions by topic, year and marks. See which topics come up most often.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FBFAF7;
+  --card:#FFFFFF;
+  --ink:#14181D;
+  --ink-2:#4B5560;
+  --ink-3:#8A939D;
+  --rule:#DDD8CE;
+  --rule-2:#EDEAE3;
+  --ink-blue:#1B3A6B;      /* the blue of exam-booklet print */
+  --marker:#B4471F;        /* marker's red pen */
+  --confirm:#1C6B4A;
+  --grid:#E8E4DA;
+  --display:"Fraunces",Georgia,serif;
+  --ui:"Public Sans",system-ui,sans-serif;
+  --mono:"Roboto Mono",ui-monospace,monospace;
+  --sp:clamp(16px,4vw,28px);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:var(--ui);font-size:16px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:0 var(--sp) 100px;overflow-x:hidden}
+.q-text{overflow-wrap:anywhere}
+a{color:var(--ink-blue)}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{
+  outline:2px solid var(--ink-blue);outline-offset:2px}
+
+/* ---------------- header ---------------- */
+header.top{
+  position:sticky;top:0;z-index:50;background:rgba(251,250,247,.94);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--rule);
+}
+.top-in{max-width:1080px;margin:0 auto;padding:12px var(--sp);
+  display:flex;align-items:center;gap:18px}
+.brand{display:flex;align-items:baseline;gap:9px;text-decoration:none;color:var(--ink)}
+.brand b{font-family:var(--display);font-weight:700;font-size:23px;letter-spacing:-.02em}
+.brand span{font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-3)}
+.nav{margin-left:auto;display:flex;gap:4px;align-items:center}
+.nav button{
+  background:none;border:none;padding:7px 12px;font-size:14px;color:var(--ink-2);
+  border-radius:6px;font-weight:500}
+.nav button:hover{background:var(--rule-2);color:var(--ink)}
+.nav button[aria-current="true"]{color:var(--ink);background:var(--rule-2)}
+.nav .primary{
+  background:var(--ink);color:#fff;padding:7px 15px;border-radius:6px}
+.nav .primary:hover{background:var(--ink-blue);color:#fff}
+
+/* ---------------- hero ---------------- */
+.hero{padding:46px 0 30px}
+h1{
+  font-family:var(--display);font-weight:600;font-size:clamp(34px,6.5vw,58px);
+  line-height:1.03;letter-spacing:-.025em;margin:0 0 16px;max-width:16ch;
+}
+h1 .em{font-style:italic;color:var(--ink-blue)}
+.lede{font-size:18px;color:var(--ink-2);max-width:54ch;margin:0 0 26px}
+
+/* search box, styled like an answer field */
+.searchbar{position:relative;max-width:640px}
+.searchbar input{
+  width:100%;font-family:var(--ui);font-size:17px;padding:15px 48px 15px 16px;
+  background:var(--card);border:1.5px solid var(--rule);border-radius:8px;
+  color:var(--ink);transition:border-color .15s,box-shadow .15s}
+.searchbar input:focus{
+  border-color:var(--ink-blue);box-shadow:0 0 0 3px rgba(27,58,107,.1);outline:none}
+.searchbar .go{
+  position:absolute;right:7px;top:7px;bottom:7px;width:36px;border:none;
+  background:var(--ink);color:#fff;border-radius:6px;display:grid;place-items:center}
+.searchbar .go:hover{background:var(--ink-blue)}
+.suggest{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;align-items:center}
+.suggest .lbl{font-size:13px;color:var(--ink-3)}
+.chip{
+  font-size:13px;padding:5px 11px;border:1px solid var(--rule);border-radius:20px;
+  background:var(--card);color:var(--ink-2);transition:all .15s}
+.chip:hover{border-color:var(--ink-blue);color:var(--ink-blue)}
+.chip[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+.corpus-line{
+  margin-top:26px;padding-top:18px;border-top:1px solid var(--rule);
+  font-family:var(--mono);font-size:12px;color:var(--ink-3);
+  display:flex;flex-wrap:wrap;gap:20px}
+.corpus-line b{color:var(--ink);font-weight:500}
+
+/* ---------------- layout ---------------- */
+.cols{display:grid;grid-template-columns:236px 1fr;gap:32px;align-items:start;margin-top:34px}
+@media (max-width:820px){.cols{grid-template-columns:1fr;gap:22px}}
+
+aside h3,.panel h3{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--ink-3);margin:0 0 11px;font-weight:400}
+.filter{margin-bottom:24px}
+.filter select,.filter input{
+  width:100%;font-family:var(--ui);font-size:14px;padding:8px 10px;
+  border:1px solid var(--rule);border-radius:6px;background:var(--card);color:var(--ink)}
+.range{display:flex;gap:8px;align-items:center}
+.range span{color:var(--ink-3);font-size:13px}
+.topic-list{list-style:none;margin:0;padding:0;max-height:340px;overflow-y:auto}
+.topic-list li{margin-bottom:1px}
+.topic-list button{
+  width:100%;text-align:left;background:none;border:none;padding:6px 8px;
+  font-size:13.5px;color:var(--ink-2);border-radius:5px;
+  display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.topic-list button:hover{background:var(--rule-2);color:var(--ink)}
+.topic-list button[aria-pressed="true"]{background:var(--ink-blue);color:#fff}
+.topic-list .n{font-family:var(--mono);font-size:11px;opacity:.65}
+
+/* ---------------- results ---------------- */
+.results-head{
+  display:flex;align-items:baseline;justify-content:space-between;gap:16px;
+  padding-bottom:11px;border-bottom:1px solid var(--rule);margin-bottom:4px;flex-wrap:wrap}
+.results-head .count{font-size:14px;color:var(--ink-2)}
+.results-head .timing{font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
+
+/* THE QUESTION CARD — ruled like an answer booklet */
+.q{
+  background:var(--card);border:1px solid var(--rule);border-radius:8px;
+  padding:16px 18px;margin-top:12px;position:relative;
+  transition:border-color .15s,transform .15s;
+  animation:rise .3s ease both}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.q:hover{border-color:var(--ink-3)}
+.q-top{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin-bottom:9px}
+.q-num{
+  font-family:var(--mono);font-size:12px;font-weight:500;color:var(--ink-blue);
+  background:rgba(27,58,107,.07);padding:2px 8px;border-radius:4px}
+.q-src{font-size:12.5px;color:var(--ink-3)}
+.q-src b{color:var(--ink-2);font-weight:500}
+.q-marks{
+  margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--marker);
+  border:1px solid currentColor;padding:1px 7px;border-radius:4px;white-space:nowrap}
+.q-text{font-size:15px;color:var(--ink);line-height:1.6;margin:0 0 11px;
+  white-space:pre-wrap}
+.q-text mark{background:#FBF0C4;padding:0 2px;border-radius:2px}
+.q-foot{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.tag{
+  font-size:12px;padding:3px 9px;border-radius:20px;border:1px solid var(--rule);
+  background:var(--paper);color:var(--ink-2);display:inline-flex;gap:5px;align-items:center}
+.tag:hover{border-color:var(--ink-blue);color:var(--ink-blue)}
+.tag .conf{width:5px;height:5px;border-radius:50%;background:var(--confirm)}
+.tag .conf.low{background:#C79A2E}
+.q-actions{margin-left:auto;display:flex;gap:4px}
+.icon-btn{
+  background:none;border:1px solid transparent;border-radius:5px;padding:4px 8px;
+  font-size:12.5px;color:var(--ink-3)}
+.icon-btn:hover{border-color:var(--rule);color:var(--ink)}
+.icon-btn[aria-pressed="true"]{color:var(--marker);border-color:var(--marker)}
+
+.empty{
+  text-align:center;padding:54px 20px;color:var(--ink-2);
+  border:1px dashed var(--rule);border-radius:8px;margin-top:16px}
+.empty b{display:block;font-family:var(--display);font-size:20px;color:var(--ink);
+  margin-bottom:7px;font-weight:600}
+
+/* ---------------- SIGNATURE: topic frequency strip ---------------- */
+.profile{
+  background:var(--card);border:1px solid var(--rule);border-radius:10px;
+  padding:22px;margin-bottom:20px;animation:rise .35s ease both}
+.profile-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;
+  flex-wrap:wrap;margin-bottom:16px}
+.profile h2{font-family:var(--display);font-weight:600;font-size:25px;margin:0 0 6px;
+  letter-spacing:-.015em}
+.profile .verdict{font-size:15.5px;color:var(--ink-2);max-width:52ch}
+.trend{
+  font-family:var(--mono);font-size:11px;letter-spacing:.09em;text-transform:uppercase;
+  padding:4px 10px;border-radius:4px;white-space:nowrap;border:1px solid currentColor}
+.trend.rising{color:var(--confirm)}
+.trend.falling{color:var(--marker)}
+.trend.steady{color:var(--ink-3)}
+
+/* the strip: one cell per year, filled by weight */
+.strip{display:flex;gap:3px;margin:18px 0 8px;align-items:flex-end;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+.yr{flex:1 1 0;min-width:26px;text-align:center}
+.yr .bar{
+  height:56px;background:var(--grid);border-radius:3px;position:relative;overflow:hidden;
+  display:flex;align-items:flex-end}
+.yr .fill{
+  width:100%;background:var(--ink-blue);border-radius:3px 3px 0 0;
+  animation:grow .5s cubic-bezier(.2,.8,.3,1) both}
+@keyframes grow{from{height:0!important}}
+.yr .fill.zero{background:transparent;border-top:2px dotted var(--rule);height:2px!important}
+.yr .n{
+  font-family:var(--mono);font-size:11px;color:var(--ink);margin-top:5px;display:block}
+.yr .y{font-family:var(--mono);font-size:10px;color:var(--ink-3)}
+.profile-stats{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;
+  background:var(--rule-2);border:1px solid var(--rule-2);border-radius:6px;
+  overflow:hidden;margin-top:16px}
+.pstat{background:var(--card);padding:12px 14px}
+.pstat .k{font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-3)}
+.pstat .v{font-family:var(--display);font-size:22px;font-weight:600;margin-top:3px}
+.pstat .v small{font-size:13px;color:var(--ink-3);font-family:var(--ui);font-weight:400}
+
+/* ---------------- panels / modal ---------------- */
+.panel{background:var(--card);border:1px solid var(--rule);border-radius:10px;padding:22px;
+  margin-top:18px}
+.overlay{
+  position:fixed;inset:0;background:rgba(20,24,29,.4);z-index:100;
+  display:grid;place-items:center;padding:20px;animation:fade .2s ease both}
+@keyframes fade{from{opacity:0}}
+.modal{
+  background:var(--card);border-radius:12px;padding:26px;max-width:420px;width:100%;
+  animation:pop .25s cubic-bezier(.2,.9,.3,1) both;max-height:90vh;overflow-y:auto}
+@keyframes pop{from{opacity:0;transform:scale(.96) translateY(8px)}}
+.modal h2{font-family:var(--display);font-size:24px;margin:0 0 6px;font-weight:600}
+.modal p.sub{color:var(--ink-2);font-size:14.5px;margin:0 0 18px}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:13px;color:var(--ink-2);margin-bottom:5px;font-weight:500}
+.field input,.field select{
+  width:100%;font-family:var(--ui);font-size:15px;padding:10px 12px;
+  border:1px solid var(--rule);border-radius:7px;background:var(--paper);color:var(--ink)}
+.btn{
+  width:100%;padding:12px;background:var(--ink);color:#fff;border:none;border-radius:7px;
+  font-size:15px;font-weight:500;margin-top:6px}
+.btn:hover{background:var(--ink-blue)}
+.btn.ghost{background:none;color:var(--ink-2);border:1px solid var(--rule)}
+.btn.ghost:hover{background:var(--rule-2);color:var(--ink)}
+.err{color:var(--marker);font-size:13.5px;margin:8px 0 0}
+.ok{color:var(--confirm);font-size:13.5px;margin:8px 0 0}
+
+/* provenance */
+.prov{
+  display:inline-flex;align-items:center;gap:5px;font-size:11.5px;
+  font-family:var(--mono);color:var(--ink-3)}
+.prov .dot{width:6px;height:6px;border-radius:50%;background:var(--ink-3)}
+.prov .dot.granted{background:var(--confirm)}
+.prov .dot.requested{background:#C79A2E}
+
+.toast{
+  position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+  background:var(--ink);color:#fff;padding:11px 20px;border-radius:8px;font-size:14px;
+  z-index:200;animation:toastIn .25s ease both}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px)}}
+
+.skeleton{background:linear-gradient(90deg,var(--rule-2) 25%,var(--paper) 50%,var(--rule-2) 75%);
+  background-size:200% 100%;animation:shim 1.2s infinite;border-radius:6px;height:78px;margin-top:12px}
+@keyframes shim{to{background-position:-200% 0}}
+
+footer{margin-top:60px;padding-top:22px;border-top:1px solid var(--rule);
+  font-size:13px;color:var(--ink-3);max-width:70ch}
+footer p{margin:0 0 9px}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="#" onclick="go('search');return false">
+      <b>Stride</b><span>past papers</span>
+    </a>
+    <nav class="nav">
+      <button onclick="go('search')" id="nav-search">Search</button>
+      <button onclick="go('topics')" id="nav-topics">Topics</button>
+      <button onclick="go('corpus')" id="nav-corpus">Coverage</button>
+      <button onclick="go('saved')" id="nav-saved" hidden>Saved</button>
+      <button class="primary" id="authBtn" onclick="openAuth()">Sign in</button>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="view"></div>
+
+  <footer>
+    <p><b>Stride indexes, it doesn't rehost.</b> Exam papers stay with the
+    institutions that wrote them. Stride stores extracted question text, topics
+    and marks, and links back to the official source. Papers you upload yourself
+    are private to your account.</p>
+    <p id="tagger-note"></p>
+    <p>Found a wrong topic or a badly split question?
+      <a href="#" onclick="reportIssue();return false">Tell us</a> — it takes one click.</p>
+  </footer>
+</div>
+
+<script>
+const API = "";
+let TOKEN = null, USER = null;
+let STATE = {view:"search", q:"", topic:null, module_id:null, year_from:null, year_to:null,
+             marks_min:null, results:null, corpus:null, topics:null, profile:null, saved:new Set()};
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// Token lives in memory only for this session. Artifacts and some embedded
+// contexts block browser storage, and a search tool should work without it.
+async function api(path, opts={}) {
+  const headers = {"Content-Type":"application/json", ...(opts.headers||{})};
+  if (TOKEN) headers.Authorization = "Bearer " + TOKEN;
+  const r = await fetch(API + path, {...opts, headers});
+  if (!r.ok) {
+    const body = await r.json().catch(()=>({detail:"Something went wrong."}));
+    throw new Error(body.detail || "Request failed");
+  }
+  return r.json();
+}
+
+function toast(msg){
+  const t = document.createElement("div");
+  t.className = "toast"; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2600);
+}
+
+function go(view){
+  STATE.view = view;
+  ["search","topics","corpus","saved"].forEach(v=>{
+    const b = $("#nav-"+v); if(b) b.setAttribute("aria-current", String(v===view));
+  });
+  render();
+}
+
+// ---------------------------------------------------------------- rendering
+function render(){
+  const v = $("#view");
+  if (STATE.view === "search") v.innerHTML = viewSearch();
+  else if (STATE.view === "topics") v.innerHTML = viewTopics();
+  else if (STATE.view === "corpus") v.innerHTML = viewCorpus();
+  else if (STATE.view === "saved") v.innerHTML = viewSaved();
+  wireUp();
+}
+
+function viewSearch(){
+  const c = STATE.corpus?.stats;
+  return `
+  <section class="hero">
+    <h1>Every past question, <span class="em">searchable</span>.</h1>
+    <p class="lede">Search across years and modules by what a question is
+      <em>about</em> — then see how often that topic actually comes up, where in
+      the paper it sits, and what it's worth.</p>
+
+    <div class="searchbar">
+      <input id="q" type="search" placeholder="red-black tree, dynamic programming, TCP congestion…"
+             value="${esc(STATE.q)}" autocomplete="off" enterkeyhint="search"
+             aria-label="Search past exam questions">
+      <button class="go" onclick="doSearch()" aria-label="Search">→</button>
+    </div>
+    <div class="suggest">
+      <span class="lbl">Try</span>
+      ${["red-black tree","dynamic programming","vanishing gradient","two-phase locking","pumping lemma"]
+        .map(s=>`<button class="chip" onclick="quick('${esc(s)}')">${esc(s)}</button>`).join("")}
+    </div>
+    ${c ? `<div class="corpus-line">
+      <span><b>${c.questions}</b> questions</span>
+      <span><b>${c.papers}</b> papers</span>
+      <span><b>${c.modules}</b> modules</span>
+      <span><b>${c.institutions}</b> institutions</span>
+      <span><b>${c.years[0]}–${c.years[c.years.length-1]}</b></span>
+    </div>` : ""}
+  </section>
+
+  <div class="cols">
+    <aside>
+      <div class="filter">
+        <h3>Module</h3>
+        <select id="f-module" onchange="setFilter('module_id', this.value||null)">
+          <option value="">All modules</option>
+          ${(STATE.corpus?.modules||[]).map(m=>`
+            <option value="${m.id}" ${STATE.module_id==m.id?"selected":""}>
+              ${esc(m.code)} — ${esc(m.title)}</option>`).join("")}
+        </select>
+      </div>
+      <div class="filter">
+        <h3>Year</h3>
+        <div class="range">
+          <input type="number" id="f-yf" placeholder="from" value="${STATE.year_from||""}"
+                 onchange="setFilter('year_from', this.value||null)" aria-label="Year from">
+          <span>–</span>
+          <input type="number" id="f-yt" placeholder="to" value="${STATE.year_to||""}"
+                 onchange="setFilter('year_to', this.value||null)" aria-label="Year to">
+        </div>
+      </div>
+      <div class="filter">
+        <h3>Minimum marks</h3>
+        <input type="number" id="f-marks" placeholder="any" value="${STATE.marks_min||""}"
+               onchange="setFilter('marks_min', this.value||null)" aria-label="Minimum marks">
+      </div>
+      <div class="filter">
+        <h3>Topic</h3>
+        <ul class="topic-list">
+          ${(STATE.topics?.topics||[]).slice(0,24).map(t=>`
+            <li><button aria-pressed="${STATE.topic===t.topic}"
+                onclick="setTopic('${esc(t.topic)}')">
+              <span>${esc(t.topic)}</span><span class="n">${t.questions}</span>
+            </button></li>`).join("")}
+        </ul>
+      </div>
+    </aside>
+
+    <main>
+      ${STATE.profile ? renderProfile(STATE.profile) : ""}
+      <div id="results">${renderResults()}</div>
+    </main>
+  </div>`;
+}
+
+function renderResults(){
+  const r = STATE.results;
+  if (r === "loading") return `<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>`;
+  if (!r) return `<div class="empty">
+      <b>Search the corpus</b>
+      Type a topic, a technique, or a phrase you half-remember from a lecture.
+    </div>`;
+  if (!r.results.length) return `<div class="empty">
+      <b>Nothing matched “${esc(r.query)}”</b>
+      Try fewer words, or browse by topic on the left. If a module you need
+      isn't indexed yet, the coverage page shows what's here.
+    </div>`;
+
+  return `
+    <div class="results-head">
+      <span class="count"><b>${r.total}</b> question${r.total===1?"":"s"}${
+        STATE.topic ? ` tagged <b>${esc(STATE.topic)}</b>` : ""}</span>
+      <span class="timing">${r.duration_ms} ms</span>
+    </div>
+    ${r.results.map(q=>renderQ(q, r.query)).join("")}`;
+}
+
+function renderQ(q, query){
+  const saved = STATE.saved.has(q.id);
+  return `
+  <article class="q">
+    <div class="q-top">
+      <span class="q-num">Q${esc(q.number)}</span>
+      <span class="q-src"><b>${esc(q.module_code)}</b> ${esc(q.year)} · ${esc(q.institution)}</span>
+      ${q.marks ? `<span class="q-marks">${q.marks} marks</span>` : ""}
+    </div>
+    <p class="q-text">${highlight(q.snippet || q.text, query)}</p>
+    <div class="q-foot">
+      ${(q.topics||[]).map(t=>`
+        <button class="tag" onclick="setTopic('${esc(t.name)}')">
+          <i class="conf ${t.confidence<0.45?"low":""}"></i>${esc(t.name)}</button>`).join("")}
+      <span class="q-actions">
+        ${q.source_url ? `<a class="icon-btn" href="${esc(q.source_url)}" target="_blank"
+            rel="noopener">Source ↗</a>` : ""}
+        <button class="icon-btn" aria-pressed="${saved}" onclick="toggleSave(${q.id})">
+          ${saved ? "Saved" : "Save"}</button>
+      </span>
+    </div>
+  </article>`;
+}
+
+function highlight(text, query){
+  let out = esc(text);
+  const toks = (query||"").toLowerCase().match(/[a-z0-9]{3,}/g) || [];
+  for (const t of new Set(toks)) {
+    out = out.replace(new RegExp(`(${t.replace(/[.*+?^${}()|[\\]\\\\]/g,"\\\\$&")})`, "gi"), "<mark>$1</mark>");
+  }
+  return out;
+}
+
+// ------------------------------------------------- the signature element
+function renderProfile(p){
+  if (!p || !p.appearances) return "";
+  const max = Math.max(...p.year_series.map(y=>y.count), 1);
+  return `
+  <div class="profile">
+    <div class="profile-head">
+      <div>
+        <h2>${esc(p.topic)}</h2>
+        <p class="verdict">${esc(p.summary)}</p>
+      </div>
+      ${p.trend ? `<span class="trend ${p.trend}">${p.trend}</span>`
+                : `<span class="trend steady">too few papers</span>`}
+    </div>
+
+    <div class="strip">
+      ${p.year_series.map((y,i)=>`
+        <div class="yr">
+          <div class="bar">
+            <div class="fill ${y.count?"":"zero"}"
+                 style="height:${y.count?Math.max(14,(y.count/max)*100):2}%;
+                        animation-delay:${i*45}ms"></div>
+          </div>
+          <span class="n">${y.count||"·"}</span>
+          <span class="y">${String(y.year).slice(2)}</span>
+        </div>`).join("")}
+    </div>
+
+    <div class="profile-stats">
+      <div class="pstat"><div class="k">Appears in</div>
+        <div class="v">${Math.round(p.appearance_rate*100)}<small>% of papers</small></div></div>
+      <div class="pstat"><div class="k">Usually</div>
+        <div class="v">Q${esc(p.typical_question||"—")}</div></div>
+      <div class="pstat"><div class="k">Typical marks</div>
+        <div class="v">${p.marks.median ?? "—"}</div></div>
+      <div class="pstat"><div class="k">Marks available</div>
+        <div class="v">${p.marks.total_available ?? "—"}</div></div>
+    </div>
+  </div>`;
+}
+
+function viewTopics(){
+  const t = STATE.topics;
+  if (!t) return `<div class="skeleton" style="height:200px"></div>`;
+  const groups = {};
+  for (const row of t.topics) {
+    const parent = t.ontology[row.topic]?.parent || "Other";
+    (groups[parent] = groups[parent] || []).push(row);
+  }
+  return `
+  <section class="hero" style="padding-bottom:16px">
+    <h1>What actually gets <span class="em">examined</span>.</h1>
+    <p class="lede">Ranked by marks available across every indexed paper. Click a
+      topic for its year-by-year history.</p>
+  </section>
+  ${Object.entries(groups).map(([parent, rows])=>`
+    <div class="panel">
+      <h3>${esc(parent)}</h3>
+      ${rows.map(r=>`
+        <div style="display:flex;align-items:baseline;gap:12px;padding:9px 0;
+                    border-bottom:1px solid var(--rule-2)">
+          <button style="background:none;border:none;padding:0;font-size:15px;
+                         color:var(--ink);text-align:left;flex:1"
+                  onclick="setTopic('${esc(r.topic)}')">${esc(r.topic)}</button>
+          <span style="font-family:var(--mono);font-size:12.5px;color:var(--ink-3)">
+            ${r.questions}q · ${r.papers}p</span>
+          <span style="font-family:var(--mono);font-size:13px;color:var(--marker);
+                       min-width:64px;text-align:right">${r.total_marks} marks</span>
+        </div>`).join("")}
+    </div>`).join("")}`;
+}
+
+function viewCorpus(){
+  const c = STATE.corpus;
+  if (!c) return `<div class="skeleton" style="height:200px"></div>`;
+  return `
+  <section class="hero" style="padding-bottom:16px">
+    <h1>What's <span class="em">indexed</span>.</h1>
+    <p class="lede">Stride stores question text and topics, and links back to the
+      official paper. Institutions are listed with whether they've agreed to be
+      indexed — nothing is rehosted.</p>
+  </section>
+  <div class="panel">
+    <h3>Institutions</h3>
+    ${c.institutions.map(i=>`
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 0;
+                  border-bottom:1px solid var(--rule-2)">
+        <div style="flex:1">
+          <div style="font-size:15px">${esc(i.name)}</div>
+          <span class="prov"><i class="dot ${i.permission_status}"></i>${
+            {granted:"Indexing agreed", requested:"Permission requested",
+             not_asked:"Not yet contacted", declined:"Declined"}[i.permission_status]
+          }</span>
+        </div>
+        <span style="font-family:var(--mono);font-size:12.5px;color:var(--ink-3)">
+          ${i.modules} modules · ${i.papers} papers</span>
+      </div>`).join("")}
+  </div>
+  <div class="panel">
+    <h3>Modules</h3>
+    ${c.modules.map(m=>`
+      <div style="display:flex;align-items:baseline;gap:12px;padding:9px 0;
+                  border-bottom:1px solid var(--rule-2)">
+        <button style="background:none;border:none;padding:0;text-align:left;flex:1;
+                       font-size:14.5px;color:var(--ink)"
+                onclick="setFilter('module_id', ${m.id}); go('search')">
+          <b style="font-family:var(--mono);font-size:13px">${esc(m.code)}</b>
+          ${esc(m.title)}</button>
+        <span style="font-family:var(--mono);font-size:12px;color:var(--ink-3)">
+          ${m.papers} papers ${m.first_year?`· ${m.first_year}–${m.last_year}`:""}</span>
+      </div>`).join("")}
+  </div>
+  ${c.stats.low_confidence_papers ? `<div class="panel">
+    <h3>Parsing quality</h3>
+    <p style="font-size:14.5px;color:var(--ink-2);margin:0">
+      ${c.stats.low_confidence_papers} paper(s) segmented with low confidence.
+      Their questions are indexed but may be split incorrectly — worth checking
+      against the original.</p>
+  </div>` : ""}`;
+}
+
+function viewSaved(){
+  if (!USER) return `<div class="empty"><b>Sign in to see saved questions</b>
+    Saving is the only thing here that needs an account.</div>`;
+  const s = STATE.savedList;
+  if (!s) return `<div class="skeleton" style="height:150px"></div>`;
+  if (!s.length) return `<div class="empty"><b>Nothing saved yet</b>
+    Hit Save on any question and it'll appear here.</div>`;
+  return `
+  <section class="hero" style="padding-bottom:10px">
+    <h1>Saved</h1><p class="lede">${s.length} question${s.length===1?"":"s"}.</p>
+  </section>
+  ${s.map(q=>renderQ({...q, topics:[], snippet:q.text}, "")).join("")}`;
+}
+
+// ---------------------------------------------------------------- actions
+function wireUp(){
+  const q = $("#q");
+  if (q) {
+    q.addEventListener("keydown", e=>{ if(e.key==="Enter") doSearch(); });
+    let t; q.addEventListener("input", e=>{
+      clearTimeout(t);
+      const v = e.target.value;
+      t = setTimeout(()=>{ if(v.length>2||v.length===0){ STATE.q=v; doSearch(true);} }, 260);
+    });
+  }
+}
+
+function quick(s){ STATE.q = s; const el=$("#q"); if(el) el.value=s; doSearch(); }
+
+async function doSearch(keepFocus){
+  STATE.q = $("#q")?.value ?? STATE.q;
+  STATE.results = "loading";
+  $("#results").innerHTML = renderResults();
+  const p = new URLSearchParams();
+  if (STATE.q) p.set("q", STATE.q);
+  for (const k of ["topic","module_id","year_from","year_to","marks_min"])
+    if (STATE[k]) p.set(k, STATE[k]);
+  try {
+    STATE.results = await api("/api/search?" + p.toString());
+  } catch(e) {
+    STATE.results = {query:STATE.q, total:0, results:[], duration_ms:0};
+    toast(e.message);
+  }
+  $("#results").innerHTML = renderResults();
+  if (keepFocus) $("#q")?.focus();
+}
+
+async function setTopic(name){
+  STATE.topic = STATE.topic === name ? null : name;
+  STATE.view = "search";
+  if (STATE.topic) {
+    try { STATE.profile = await api("/api/topics/" + encodeURIComponent(STATE.topic)); }
+    catch { STATE.profile = null; }
+  } else STATE.profile = null;
+  render();
+  doSearch();
+}
+
+function setFilter(k, v){ STATE[k] = v; doSearch(); }
+
+async function toggleSave(qid){
+  if (!USER) { openAuth(); return; }
+  try {
+    if (STATE.saved.has(qid)) {
+      await api("/api/saved/" + qid, {method:"DELETE"});
+      STATE.saved.delete(qid); toast("Removed");
+    } else {
+      await api("/api/saved", {method:"POST", body:JSON.stringify({question_id:qid})});
+      STATE.saved.add(qid); toast("Saved");
+    }
+    if (STATE.view === "saved") loadSaved(); else render();
+  } catch(e){ toast(e.message); }
+}
+
+async function loadSaved(){
+  if (!USER) return;
+  const r = await api("/api/saved");
+  STATE.savedList = r.saved;
+  STATE.saved = new Set(r.saved.map(q=>q.id));
+  if (STATE.view === "saved") render();
+}
+
+function reportIssue(){
+  const msg = prompt("What's wrong? (a wrong topic, a badly split question, anything)");
+  if (!msg) return;
+  api("/api/feedback", {method:"POST",
+      body:JSON.stringify({kind:"other", message:msg})})
+    .then(()=>toast("Thanks — that helps."))
+    .catch(()=>toast("Couldn't send that. Try again?"));
+}
+
+// ---------------------------------------------------------------- auth
+function openAuth(mode="signin"){
+  const el = document.createElement("div");
+  el.className = "overlay"; el.id = "authModal";
+  el.onclick = e => { if (e.target === el) el.remove(); };
+  el.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Sign in">
+      <h2>${mode==="signin"?"Sign in":"Create an account"}</h2>
+      <p class="sub">${mode==="signin"
+        ? "Only needed to save questions and add your own papers. Search works without one."
+        : "Your email is used for sign-in and nothing else."}</p>
+      <div class="field"><label for="em">Email</label>
+        <input id="em" type="email" autocomplete="email" inputmode="email"></div>
+      <div class="field"><label for="pw">Password</label>
+        <input id="pw" type="password" autocomplete="${mode==="signin"?"current-password":"new-password"}"></div>
+      ${mode==="signup"?`<div class="field"><label for="dn">Name (optional)</label>
+        <input id="dn" type="text" autocomplete="name"></div>`:""}
+      <p class="err" id="authErr" hidden></p>
+      <button class="btn" onclick="submitAuth('${mode}')">
+        ${mode==="signin"?"Sign in":"Create account"}</button>
+      <button class="btn ghost" style="margin-top:8px"
+              onclick="document.getElementById('authModal').remove();openAuth('${mode==="signin"?"signup":"signin"}')">
+        ${mode==="signin"?"I need an account":"I already have one"}</button>
+    </div>`;
+  document.body.appendChild(el);
+  setTimeout(()=>$("#em")?.focus(), 60);
+}
+
+async function submitAuth(mode){
+  const email = $("#em").value.trim(), password = $("#pw").value;
+  const err = $("#authErr");
+  err.hidden = true;
+  if (!email || password.length < 8) {
+    err.textContent = "Enter an email and a password of at least 8 characters.";
+    err.hidden = false; return;
+  }
+  try {
+    const body = mode==="signin" ? {email,password}
+               : {email,password,display_name:$("#dn")?.value||null};
+    const r = await api("/api/auth/" + (mode==="signin"?"signin":"signup"),
+                        {method:"POST", body:JSON.stringify(body)});
+    TOKEN = r.token; USER = {email:r.email, display_name:r.display_name};
+    $("#authModal")?.remove();
+    $("#authBtn").textContent = r.display_name || r.email.split("@")[0];
+    $("#authBtn").onclick = signOut;
+    $("#nav-saved").hidden = false;
+    toast("Signed in");
+    loadSaved();
+  } catch(e) {
+    err.textContent = e.message; err.hidden = false;
+  }
+}
+
+function signOut(){
+  TOKEN = null; USER = null; STATE.saved = new Set(); STATE.savedList = null;
+  $("#authBtn").textContent = "Sign in";
+  $("#authBtn").onclick = () => openAuth();
+  $("#nav-saved").hidden = true;
+  if (STATE.view === "saved") go("search"); else render();
+  toast("Signed out");
+}
+
+// ---------------------------------------------------------------- boot
+(async function boot(){
+  go("search");
+  try {
+    const [corpus, topics] = await Promise.all([
+      api("/api/corpus"), api("/api/topics")
+    ]);
+    STATE.corpus = corpus; STATE.topics = topics;
+    const t = topics.tagger;
+    $("#tagger-note").textContent = t.accuracy !== null
+      ? `Topic tags are assigned automatically and are right about ${Math.round(t.accuracy*100)}% of the time, based on ${t.judged} student reviews.`
+      : "Topic tags are assigned automatically. " + t.note;
+    render();
+  } catch(e) {
+    console.error(e);
+    $("#view").innerHTML = `<div class="empty"><b>Can't reach the server</b>
+      Start it with <code>uvicorn backend.api:app --reload</code>.</div>`;
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-# Stride
+# Stride Edu
 
 **Search past exam questions by topic, year and marks — and see what actually comes up.**
 
